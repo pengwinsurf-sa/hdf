@@ -221,9 +221,57 @@ jobs:
       # Verify installation
       - name: Verify Installation
         run: |
-          echo "HDF5 version:"
-          h5cc -showconfig
-          echo "HDF5 library location:"
-          ldconfig -p | grep hdf5
-          echo "HDF5 headers location:"
-          find /usr/local -name "*.h" | grep hdf5 | head -5 
+          echo "=== HDF5 Installation Verification ==="
+          
+          # Update library cache
+          sudo ldconfig
+          
+          echo "1. Checking HDF5 version:"
+          if command -v h5cc >/dev/null 2>&1; then
+            h5cc -showconfig
+          else
+            echo "h5cc not found in PATH, checking /usr/local/bin:"
+            if [ -f /usr/local/bin/h5cc ]; then
+              /usr/local/bin/h5cc -showconfig
+            else
+              echo "h5cc not found in /usr/local/bin"
+            fi
+          fi
+          
+          echo "2. Checking HDF5 library location:"
+          ldconfig -p | grep hdf5 || echo "No HDF5 libraries found in ldconfig"
+          
+          echo "3. Checking HDF5 headers location:"
+          find /usr/local -name "*.h" | grep hdf5 | head -5 || echo "No HDF5 headers found in /usr/local"
+          
+          echo "4. Checking installation directories:"
+          echo "   /usr/local/include:"
+          ls -la /usr/local/include/ | grep hdf5 || echo "   No HDF5 files in /usr/local/include"
+          echo "   /usr/local/lib:"
+          ls -la /usr/local/lib/ | grep hdf5 || echo "   No HDF5 files in /usr/local/lib"
+          echo "   /usr/local/bin:"
+          ls -la /usr/local/bin/ | grep h5 || echo "   No HDF5 binaries in /usr/local/bin"
+          
+          echo "5. Checking CMake installation info:"
+          if [ -f "${{ runner.workspace }}/build/CMakeCache.txt" ]; then
+            grep -i "CMAKE_INSTALL_PREFIX" "${{ runner.workspace }}/build/CMakeCache.txt" || echo "   CMAKE_INSTALL_PREFIX not found in cache"
+          fi
+
+      # Notify on success
+      - name: Notify Success
+        if: success()
+        run: |
+          echo "✅ Build completed successfully for ${{ matrix.build_config.name }}"
+          echo "Workflow: ${{ github.workflow }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Commit: ${{ github.sha }}"
+
+      # Notify on failure
+      - name: Notify Failure
+        if: failure()
+        run: |
+          echo "❌ Build failed for ${{ matrix.build_config.name }}"
+          echo "Workflow: ${{ github.workflow }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Please check the logs for details." 
