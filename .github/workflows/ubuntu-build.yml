@@ -1,0 +1,226 @@
+name: HDF5 Ubuntu Build and Test
+
+on:
+    push:
+      branches: [ "main" ]
+    pull_request:
+      branches: [ "main" ]
+    workflow_dispatch:
+
+# Using concurrency to cancel any in-progress job or run
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Ubuntu Build and Test Matrix
+  ubuntu-build-test:
+    strategy:
+      matrix:
+        build_config:
+          - name: "Release Build"
+            build_mode: "Release"
+            thread_safety: ""
+            concurrent: ""
+            description: "Standard release build"
+          
+          - name: "Debug Build"
+            build_mode: "Debug"
+            thread_safety: ""
+            concurrent: ""
+            description: "Standard debug build"
+          
+          - name: "Release Thread-Safe"
+            build_mode: "Release"
+            thread_safety: "TS"
+            concurrent: ""
+            description: "Release build with thread safety"
+          
+          - name: "Debug Thread-Safe"
+            build_mode: "Debug"
+            thread_safety: "TS"
+            concurrent: ""
+            description: "Debug build with thread safety"
+          
+          - name: "Release Concurrent"
+            build_mode: "Release"
+            thread_safety: ""
+            concurrent: "CC"
+            description: "Release build with concurrency"
+          
+          - name: "Debug Concurrent"
+            build_mode: "Debug"
+            thread_safety: ""
+            concurrent: "CC"
+            description: "Debug build with concurrency"
+
+    name: "Ubuntu ${{ matrix.build_config.name }}"
+    runs-on: ubuntu-latest
+    
+    # Don't run if commit message says to skip CI
+    if: ${{ !contains(github.event.head_commit.message, 'skip-ci') }}
+
+    steps:
+      # Install system dependencies
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build graphviz
+          sudo apt install -y libssl3 libssl-dev libcurl4 libcurl4-openssl-dev
+          sudo apt install -y libaec-dev zlib1g-dev automake autoconf
+          sudo apt install -y libjpeg-dev wget curl bzip2 m4 flex bison
+          sudo apt install -y cmake libzip-dev doxygen openssl libtool libtool-bin
+
+      # Install Doxygen
+      - name: Install Doxygen
+        uses: ssciwr/doxygen-install@v1
+        with:
+          version: "1.13.2"
+
+      # Checkout the repository
+      - name: Checkout Sources
+        uses: actions/checkout@v4.1.7
+
+      # CMake Configure - Standard Build
+      - name: CMake Configure (Standard)
+        if: ${{ matrix.build_config.thread_safety != 'TS' && matrix.build_config.concurrent != 'CC' }}
+        run: |
+          mkdir "${{ runner.workspace }}/build"
+          cd "${{ runner.workspace }}/build"
+          cmake -C $GITHUB_WORKSPACE/config/cmake/cacheinit.cmake \
+            -G Ninja \
+            --log-level=VERBOSE \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_config.build_mode }} \
+            -DBUILD_SHARED_LIBS:BOOL=ON \
+            -DHDF5_ENABLE_ALL_WARNINGS:BOOL=ON \
+            -DHDF5_ENABLE_DOXY_WARNINGS:BOOL=ON \
+            -DHDF5_ENABLE_PARALLEL:BOOL=OFF \
+            -DHDF5_BUILD_CPP_LIB:BOOL=ON \
+            -DHDF5_BUILD_FORTRAN:BOOL=ON \
+            -DHDF5_BUILD_JAVA:BOOL=ON \
+            -DHDF5_BUILD_DOC:BOOL=ON \
+            -DHDF5_ENABLE_ZLIB_SUPPORT:BOOL=ON \
+            -DHDF5_ENABLE_SZIP_SUPPORT:BOOL=ON \
+            -DLIBAEC_USE_LOCALCONTENT:BOOL=OFF \
+            -DZLIB_USE_LOCALCONTENT:BOOL=OFF \
+            -DHDF5_TEST_API:BOOL=ON \
+            -DHDF5_TEST_SHELL_SCRIPTS:BOOL=ON \
+            -DENABLE_EXTENDED_TESTS:BOOL=OFF \
+            -DHDF5_ENABLE_MIRROR_VFD:BOOL=ON \
+            -DHDF5_ENABLE_DIRECT_VFD:BOOL=ON \
+            -DHDF5_PACK_EXAMPLES:BOOL=ON \
+            -DHDF5_PACKAGE_EXTLIBS:BOOL=ON \
+            -DHDF5_PACK_MACOSX_DMG:BOOL=OFF \
+            $GITHUB_WORKSPACE
+
+      # CMake Configure - Thread-Safe Build
+      - name: CMake Configure (Thread-Safe)
+        if: ${{ matrix.build_config.thread_safety == 'TS' }}
+        run: |
+          mkdir "${{ runner.workspace }}/build"
+          cd "${{ runner.workspace }}/build"
+          cmake -C $GITHUB_WORKSPACE/config/cmake/cacheinit.cmake \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_config.build_mode }} \
+            -DBUILD_SHARED_LIBS:BOOL=ON \
+            -DBUILD_STATIC_LIBS:BOOL=ON \
+            -DHDF5_ENABLE_ALL_WARNINGS:BOOL=ON \
+            -DHDF5_ENABLE_THREADSAFE:BOOL=ON \
+            -DHDF5_ENABLE_CONCURRENCY:BOOL=OFF \
+            -DHDF5_ENABLE_PARALLEL:BOOL=OFF \
+            -DHDF5_BUILD_CPP_LIB:BOOL=OFF \
+            -DHDF5_BUILD_FORTRAN:BOOL=OFF \
+            -DHDF5_BUILD_JAVA:BOOL=OFF \
+            -DHDF5_BUILD_DOC:BOOL=OFF \
+            -DHDF5_ENABLE_ZLIB_SUPPORT:BOOL=ON \
+            -DHDF5_ENABLE_SZIP_SUPPORT:BOOL=ON \
+            -DLIBAEC_USE_LOCALCONTENT:BOOL=OFF \
+            -DZLIB_USE_LOCALCONTENT:BOOL=OFF \
+            -DHDF5_TEST_API:BOOL=ON \
+            -DHDF5_TEST_SHELL_SCRIPTS:BOOL=ON \
+            -DENABLE_EXTENDED_TESTS:BOOL=OFF \
+            -DHDF5_ENABLE_MIRROR_VFD:BOOL=ON \
+            -DHDF5_ENABLE_DIRECT_VFD:BOOL=OFF \
+            -DHDF5_PACK_EXAMPLES:BOOL=ON \
+            -DHDF5_PACKAGE_EXTLIBS:BOOL=ON \
+            -DHDF5_PACK_MACOSX_DMG:BOOL=OFF \
+            $GITHUB_WORKSPACE
+
+      # CMake Configure - Concurrent Build
+      - name: CMake Configure (Concurrent)
+        if: ${{ matrix.build_config.concurrent == 'CC' }}
+        run: |
+          mkdir "${{ runner.workspace }}/build"
+          cd "${{ runner.workspace }}/build"
+          cmake -C $GITHUB_WORKSPACE/config/cmake/cacheinit.cmake \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_config.build_mode }} \
+            -DBUILD_SHARED_LIBS:BOOL=ON \
+            -DBUILD_STATIC_LIBS:BOOL=ON \
+            -DHDF5_ENABLE_ALL_WARNINGS:BOOL=ON \
+            -DHDF5_ENABLE_THREADSAFE:BOOL=OFF \
+            -DHDF5_ENABLE_CONCURRENCY:BOOL=ON \
+            -DHDF5_ENABLE_PARALLEL:BOOL=OFF \
+            -DHDF5_BUILD_CPP_LIB:BOOL=OFF \
+            -DHDF5_BUILD_FORTRAN:BOOL=OFF \
+            -DHDF5_BUILD_JAVA:BOOL=OFF \
+            -DHDF5_BUILD_DOC:BOOL=OFF \
+            -DHDF5_ENABLE_ZLIB_SUPPORT:BOOL=ON \
+            -DHDF5_ENABLE_SZIP_SUPPORT:BOOL=ON \
+            -DLIBAEC_USE_LOCALCONTENT:BOOL=OFF \
+            -DZLIB_USE_LOCALCONTENT:BOOL=OFF \
+            -DHDF5_TEST_API:BOOL=ON \
+            -DHDF5_TEST_SHELL_SCRIPTS:BOOL=ON \
+            -DENABLE_EXTENDED_TESTS:BOOL=OFF \
+            -DHDF5_ENABLE_MIRROR_VFD:BOOL=ON \
+            -DHDF5_ENABLE_DIRECT_VFD:BOOL=OFF \
+            -DHDF5_PACK_EXAMPLES:BOOL=ON \
+            -DHDF5_PACKAGE_EXTLIBS:BOOL=ON \
+            -DHDF5_PACK_MACOSX_DMG:BOOL=OFF \
+            $GITHUB_WORKSPACE
+
+      # Build the project
+      - name: CMake Build
+        run: |
+          cd "${{ runner.workspace }}/build"
+          cmake --build . --parallel 4 --config ${{ matrix.build_config.build_mode }}
+
+      # Run tests
+      - name: Run Tests
+        if: ${{ matrix.build_config.thread_safety != 'TS' && matrix.build_config.concurrent != 'CC' }}
+        run: |
+          cd "${{ runner.workspace }}/build"
+          ctest --output-on-failure --parallel 4
+
+      # Run tests for thread-safe builds
+      - name: Run Tests (Thread-Safe)
+        if: ${{ matrix.build_config.thread_safety == 'TS' }}
+        run: |
+          cd "${{ runner.workspace }}/build"
+          ctest --output-on-failure --parallel 4
+
+      # Run tests for concurrent builds
+      - name: Run Tests (Concurrent)
+        if: ${{ matrix.build_config.concurrent == 'CC' }}
+        run: |
+          cd "${{ runner.workspace }}/build"
+          ctest --output-on-failure --parallel 4
+
+      # Install the library
+      - name: Install HDF5
+        run: |
+          cd "${{ runner.workspace }}/build"
+          sudo cmake --install . --config ${{ matrix.build_config.build_mode }} --prefix="/usr/local"
+
+      # Verify installation
+      - name: Verify Installation
+        run: |
+          echo "HDF5 version:"
+          h5cc -showconfig
+          echo "HDF5 library location:"
+          ldconfig -p | grep hdf5
+          echo "HDF5 headers location:"
+          find /usr/local -name "*.h" | grep hdf5 | head -5 
