@@ -194,6 +194,25 @@ jobs:
           cd "${{ runner.workspace }}/build"
           cmake --build . --parallel 4 --config ${{ matrix.build_config.build_mode }}
 
+      # Verify shared libraries were built (Standard Builds only)
+      - name: Verify Shared Libraries Built
+        if: ${{ matrix.build_config.thread_safety != 'TS' && matrix.build_config.concurrent != 'CC' }}
+        run: |
+          cd "${{ runner.workspace }}/build"
+          echo "=== Verifying Shared Libraries Were Built ==="
+          
+          # Check for shared libraries in build directory
+          echo "Checking for shared libraries in build directory:"
+          find . -name "*.so*" | grep hdf5 || echo "No HDF5 shared libraries found in build directory"
+          
+          # Check for static libraries too
+          echo "Checking for static libraries in build directory:"
+          find . -name "*.a" | grep hdf5 || echo "No HDF5 static libraries found in build directory"
+          
+          # List all libraries
+          echo "All libraries in build directory:"
+          find . -name "*.so*" -o -name "*.a" | head -10
+
       # Run tests
       - name: Run Tests
         if: ${{ matrix.build_config.thread_safety != 'TS' && matrix.build_config.concurrent != 'CC' }}
@@ -270,6 +289,20 @@ jobs:
             ls -la "$INSTALL_PATH/"
           else
             echo "   ❌ Install directory not found: $INSTALL_PATH"
+          fi
+          
+          echo "7. Checking shared libraries (Standard Builds only):"
+          if [ "${{ matrix.build_config.thread_safety }}" == "" ] && [ "${{ matrix.build_config.concurrent }}" == "" ]; then
+            echo "   Checking for shared libraries in $INSTALL_PATH/lib:"
+            if [ -d "$INSTALL_PATH/lib" ]; then
+              find "$INSTALL_PATH/lib" -name "*.so*" | grep hdf5 || echo "   No HDF5 shared libraries found"
+              echo "   All shared libraries in lib directory:"
+              find "$INSTALL_PATH/lib" -name "*.so*" || echo "   No shared libraries found"
+            else
+              echo "   $INSTALL_PATH/lib directory not found"
+            fi
+          else
+            echo "   Skipping shared library check for non-Standard builds"
           fi
 
       # Standard Build Only Action
