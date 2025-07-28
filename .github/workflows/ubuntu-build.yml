@@ -305,15 +305,50 @@ jobs:
             echo "   Skipping shared library check for non-Standard builds"
           fi
 
+      # List install directory contents before ApiCov
+      - name: List Install Directory Contents
+        if: ${{ matrix.build_config.thread_safety == '' && matrix.build_config.concurrent == '' }}
+        run: |
+          echo "=== Install Directory Contents Before ApiCov ==="
+          INSTALL_PATH="${{ runner.workspace }}/install"
+          
+          echo "Full install directory structure:"
+          find "$INSTALL_PATH" -type f | head -20
+          
+          echo ""
+          echo "Install directory contents by subdirectory:"
+          echo "1. Bin directory ($INSTALL_PATH/bin):"
+          ls -la "$INSTALL_PATH/bin/" 2>/dev/null || echo "   Bin directory not found"
+          
+          echo ""
+          echo "2. Lib directory ($INSTALL_PATH/lib):"
+          ls -la "$INSTALL_PATH/lib/" 2>/dev/null || echo "   Lib directory not found"
+          
+          echo ""
+          echo "3. Include directory ($INSTALL_PATH/include):"
+          ls -la "$INSTALL_PATH/include/" 2>/dev/null || echo "   Include directory not found"
+          
+          echo ""
+          echo "4. Share directory ($INSTALL_PATH/share):"
+          ls -la "$INSTALL_PATH/share/" 2>/dev/null || echo "   Share directory not found"
+          
+          echo ""
+          echo "5. Doxygen XML path ($INSTALL_PATH/share/xml):"
+          ls -la "$INSTALL_PATH/share/xml/" 2>/dev/null || echo "   Doxygen XML directory not found"
+          
+          echo ""
+          echo "6. All HDF5 files in install:"
+          find "$INSTALL_PATH" -name "*hdf5*" -o -name "*h5*" | head -10
+
       # Standard Build Only Action
       - name: ApiCov on Standard Build
         if: ${{ matrix.build_config.thread_safety == '' && matrix.build_config.concurrent == '' }}
         uses: codesa-ai/ApiCov@v0.3.1-pre
         with:
-          root_path: ${{ github.workspace }}
+          root_path: ${{ runner.workspace }}/build
           api_key: ${{ secrets.APICOV_KEY }}
           install_path: ${{ runner.workspace }}/install
-          doxygen_path: ${{ runner.workspace }}/build/doc
+          doxygen_path: ${{ runner.workspace }}/install/share/xml
 
       # Notify on success
       - name: Notify Success
