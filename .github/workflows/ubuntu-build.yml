@@ -349,6 +349,7 @@ jobs:
           api_key: ${{ secrets.APICOV_KEY }}
           install_path: ${{ runner.workspace }}/install
           doxygen_path: ${{ runner.workspace }}/install/share/xml
+          artifact_name: "apicov-${{ matrix.build_config.name }}-${{ github.run_id }}"
 
       # Notify on success
       - name: Notify Success
