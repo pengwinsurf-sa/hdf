@@ -68,7 +68,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build graphviz
+          sudo apt-get install -y ninja-build graphviz openmpi-bin libopenmpi-dev
           sudo apt install -y libssl3 libssl-dev libcurl4 libcurl4-openssl-dev
           sudo apt install -y libaec-dev zlib1g-dev automake autoconf
           sudo apt install -y libjpeg-dev wget curl bzip2 m4 flex bison
@@ -343,7 +343,7 @@ jobs:
       # Standard Build Only Action
       - name: ApiCov on Standard Build
         if: ${{ matrix.build_config.thread_safety == '' && matrix.build_config.concurrent == '' }}
-        uses: codesa-ai/ApiCov@v0.3.1-pre
+        uses: codesa-ai/ApiCov@v0.3.9-pre
         with:
           root_path: ${{ runner.workspace }}/build
           api_key: ${{ secrets.APICOV_KEY }}
