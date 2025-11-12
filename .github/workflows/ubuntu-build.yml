@@ -348,7 +348,8 @@ jobs:
           root_path: ${{ runner.workspace }}/build
           api_key: ${{ secrets.APICOV_KEY }}
           install_path: ${{ runner.workspace }}/install
-          doxygen_path: ${{ runner.workspace }}/install/share/xml
+          doxygen_path: ${{ runner.workspace }}/install/doc/doxygen
+          xml: false
 
       # Notify on success
       - name: Notify Success
