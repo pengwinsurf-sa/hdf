@@ -348,8 +348,7 @@ jobs:
           root_path: ${{ runner.workspace }}/build
           api_key: ${{ secrets.APICOV_KEY }}
           install_path: ${{ runner.workspace }}/install
-          doxygen_path: /usr/local/doc/doxygen/html
-          xml: false
+          doxygen_path: ${{ runner.workspace }}/doxygen
 
       # Notify on success
       - name: Notify Success
