@@ -345,10 +345,10 @@ jobs:
         if: ${{ matrix.build_config.thread_safety == '' && matrix.build_config.concurrent == '' }}
         uses: codesa-ai/ApiCov@v0.3.11-pre
         with:
-          root_path: ${{ runner.workspace }}/build
+          root_path: ${{ runner.workspace }}
           api_key: ${{ secrets.APICOV_KEY }}
           install_path: ${{ runner.workspace }}/install
-          doxygen_path: ${{ runner.workspace }}/doxygen
+          doxygen_path: ${{ runner.workspace }}/hdf/doxygen
 
       # Notify on success
       - name: Notify Success
